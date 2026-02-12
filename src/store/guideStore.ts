@@ -21,6 +21,7 @@ interface GuideStore {
   addStep: (imageUrl: string, imageName: string) => void;
   updateStep: (stepId: string, updates: Partial<GuideStep>) => void;
   deleteStep: (stepId: string) => void;
+  duplicateStep: (stepId: string) => void;
   reorderSteps: (newOrder: string[]) => void;
   setSelectedStep: (stepId: string | null) => void;
   
@@ -141,6 +142,45 @@ export const useGuideStore = create<GuideStore>()(
               : p
           ),
           selectedStepId: state.selectedStepId === stepId ? null : state.selectedStepId,
+        }));
+      },
+
+      duplicateStep: (stepId) => {
+        const project = get().getCurrentProject();
+        if (!project) return;
+        
+        const stepToDuplicate = project.steps.find((s) => s.id === stepId);
+        if (!stepToDuplicate) return;
+        
+        const newStep: GuideStep = {
+          ...stepToDuplicate,
+          id: uuidv4(),
+          title: `${stepToDuplicate.title} (Copy)`,
+          order: stepToDuplicate.order + 1,
+          annotations: stepToDuplicate.annotations.map((a) => ({
+            ...a,
+            id: uuidv4(),
+          })),
+        };
+        
+        set((state) => ({
+          projects: state.projects.map((p) =>
+            p.id === project.id
+              ? {
+                  ...p,
+                  steps: [
+                    ...p.steps.slice(0, stepToDuplicate.order + 1),
+                    newStep,
+                    ...p.steps.slice(stepToDuplicate.order + 1).map((s) => ({
+                      ...s,
+                      order: s.order + 1,
+                    })),
+                  ],
+                  updatedAt: new Date().toISOString(),
+                }
+              : p
+          ),
+          selectedStepId: newStep.id,
         }));
       },
 

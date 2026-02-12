@@ -19,11 +19,11 @@ import {
   useSortable,
 } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
-import { GripVertical, Trash2, Upload, Image } from 'lucide-react';
+import { GripVertical, Trash2, Upload, Image, Copy } from 'lucide-react';
 import { GuideStep } from '@/types/guide';
 
 function SortableStep({ step, isSelected }: { step: GuideStep; isSelected: boolean }) {
-  const { setSelectedStep, deleteStep } = useGuideStore();
+  const { setSelectedStep, deleteStep, duplicateStep } = useGuideStore();
   
   const {
     attributes,
@@ -80,15 +80,28 @@ function SortableStep({ step, isSelected }: { step: GuideStep; isSelected: boole
         </p>
       </div>
       
-      <button
-        onClick={(e) => {
-          e.stopPropagation();
-          deleteStep(step.id);
-        }}
-        className="p-1 text-gray-400 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity"
-      >
-        <Trash2 className="w-4 h-4" />
-      </button>
+      <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+        <button
+          onClick={(e) => {
+            e.stopPropagation();
+            duplicateStep(step.id);
+          }}
+          className="p-1 text-gray-400 hover:text-blue-500"
+          title="Duplicate step"
+        >
+          <Copy className="w-4 h-4" />
+        </button>
+        <button
+          onClick={(e) => {
+            e.stopPropagation();
+            deleteStep(step.id);
+          }}
+          className="p-1 text-gray-400 hover:text-red-500"
+          title="Delete step"
+        >
+          <Trash2 className="w-4 h-4" />
+        </button>
+      </div>
     </div>
   );
 }
