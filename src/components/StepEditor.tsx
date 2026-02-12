@@ -36,6 +36,8 @@ export default function StepEditor({ step }: StepEditorProps) {
   const [currentAnnotation, setCurrentAnnotation] = useState<Partial<Annotation> | null>(null);
   const [selectedAnnotation, setSelectedAnnotation] = useState<string | null>(null);
   const [zoom, setZoom] = useState(1);
+  const [isDragging, setIsDragging] = useState(false);
+  const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 });
   const canvasRef = useRef<HTMLDivElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const imageRef = useRef<HTMLImageElement>(null);
@@ -190,6 +192,12 @@ export default function StepEditor({ step }: StepEditorProps) {
   };
 
   const handleMouseMove = (e: React.MouseEvent) => {
+    // Handle dragging selected annotation
+    if (isDragging) {
+      handleAnnotationDrag(e);
+      return;
+    }
+
     if (!isDrawing || !currentAnnotation) return;
 
     const pos = getRelativePosition(e);
@@ -210,6 +218,12 @@ export default function StepEditor({ step }: StepEditorProps) {
   };
 
   const handleMouseUp = () => {
+    // End dragging
+    if (isDragging) {
+      handleDragEnd();
+      return;
+    }
+
     if (!isDrawing || !currentAnnotation) return;
 
     // Only add if it has some size
@@ -229,8 +243,49 @@ export default function StepEditor({ step }: StepEditorProps) {
   const handleAnnotationClick = (e: React.MouseEvent, annotationId: string) => {
     e.stopPropagation();
     if (activeTool === 'select') {
-      setSelectedAnnotation(annotationId);
+      const annotation = step.annotations.find((a) => a.id === annotationId);
+      if (annotation) {
+        const pos = getRelativePosition(e);
+        setSelectedAnnotation(annotationId);
+        setIsDragging(true);
+        setDragOffset({
+          x: pos.x - annotation.x,
+          y: pos.y - annotation.y,
+        });
+      }
     }
+  };
+
+  const handleAnnotationDrag = (e: React.MouseEvent) => {
+    if (!isDragging || !selectedAnnotation) return;
+
+    const pos = getRelativePosition(e);
+    const annotation = step.annotations.find((a) => a.id === selectedAnnotation);
+    if (!annotation) return;
+
+    const newX = pos.x - dragOffset.x;
+    const newY = pos.y - dragOffset.y;
+
+    // Update position based on annotation type
+    if (annotation.type === 'arrow') {
+      const dx = (annotation.endX || annotation.x) - annotation.x;
+      const dy = (annotation.endY || annotation.y) - annotation.y;
+      updateAnnotation(step.id, selectedAnnotation, {
+        x: newX,
+        y: newY,
+        endX: newX + dx,
+        endY: newY + dy,
+      });
+    } else {
+      updateAnnotation(step.id, selectedAnnotation, {
+        x: newX,
+        y: newY,
+      });
+    }
+  };
+
+  const handleDragEnd = () => {
+    setIsDragging(false);
   };
 
   const renderAnnotation = (annotation: Annotation, isPreview = false) => {
