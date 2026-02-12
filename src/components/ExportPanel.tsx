@@ -114,6 +114,15 @@ export default function ExportPanel({ onClose }: ExportPanelProps) {
                       const length = Math.sqrt(dx * dx + dy * dy);
                       return `<div style="position: absolute; left: ${a.x}%; top: ${a.y}%; width: ${length}%; height: 3px; background-color: ${a.color}; transform-origin: 0 50%; transform: rotate(${angle}deg);"><div style="position: absolute; right: -8px; top: -5px; width: 0; height: 0; border-left: 12px solid ${a.color}; border-top: 6px solid transparent; border-bottom: 6px solid transparent;"></div></div>`;
                     }
+                    if (a.type === 'callout') {
+                      return `<div style="position: absolute; left: ${a.x}%; top: ${a.y}%; transform: translate(-50%, -50%); width: 32px; height: 32px; border-radius: 50%; background-color: ${a.color}; display: flex; align-items: center; justify-content: center; color: white; font-weight: bold; font-size: 16px; box-shadow: 0 2px 4px rgba(0,0,0,0.3);">${a.number || ''}</div>`;
+                    }
+                    if (a.type === 'blur') {
+                      return `<div style="position: absolute; left: ${Math.min(a.x, a.x + (a.width || 0))}%; top: ${Math.min(a.y, a.y + (a.height || 0))}%; width: ${Math.abs(a.width || 0)}%; height: ${Math.abs(a.height || 0)}%; background-color: #1a1a1a; border-radius: 4px;"></div>`;
+                    }
+                    if (a.type === 'cursor') {
+                      return `<div style="position: absolute; left: ${a.x}%; top: ${a.y}%; transform: translate(-8px, -8px);"><div style="position: absolute; left: -12px; top: -12px; width: 40px; height: 40px; border-radius: 50%; border: 3px solid ${a.color}; opacity: 0.5;"></div><div style="width: 16px; height: 16px; border-radius: 50%; background-color: ${a.color}; box-shadow: 0 2px 4px rgba(0,0,0,0.3);"></div></div>`;
+                    }
                     return '';
                   })
                   .join('')}

@@ -1,31 +1,16 @@
 'use client';
 
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, useCallback } from 'react';
 import { useGuideStore } from '@/store/guideStore';
 import { GuideStep, Annotation } from '@/types/guide';
-import {
-  MousePointer2,
-  Square,
-  Circle,
-  ArrowRight,
-  Type,
-  Highlighter,
-  Trash2,
-  Hash,
-  EyeOff,
-  MousePointerClick,
-  ZoomIn,
-  ZoomOut,
-  Maximize,
-} from 'lucide-react';
+import Toolbar from './Toolbar';
+import { FileText, MessageSquare } from 'lucide-react';
 
 interface StepEditorProps {
   step: GuideStep;
 }
 
 type AnnotationTool = 'select' | 'box' | 'circle' | 'arrow' | 'text' | 'highlight' | 'callout' | 'blur' | 'cursor';
-
-const COLORS = ['#EF4444', '#F59E0B', '#10B981', '#3B82F6', '#8B5CF6', '#EC4899', '#000000'];
 
 export default function StepEditor({ step }: StepEditorProps) {
   const { updateStep, addAnnotation, updateAnnotation, deleteAnnotation } = useGuideStore();
@@ -40,70 +25,37 @@ export default function StepEditor({ step }: StepEditorProps) {
   const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 });
   const canvasRef = useRef<HTMLDivElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
-  const imageRef = useRef<HTMLImageElement>(null);
-
-  const tools: { id: AnnotationTool; icon: React.ReactNode; label: string; shortcut?: string }[] = [
-    { id: 'select', icon: <MousePointer2 className="w-5 h-5" />, label: 'Select', shortcut: 'V' },
-    { id: 'callout', icon: <Hash className="w-5 h-5" />, label: 'Numbered Callout', shortcut: '1' },
-    { id: 'box', icon: <Square className="w-5 h-5" />, label: 'Rectangle', shortcut: 'R' },
-    { id: 'circle', icon: <Circle className="w-5 h-5" />, label: 'Circle', shortcut: 'O' },
-    { id: 'arrow', icon: <ArrowRight className="w-5 h-5" />, label: 'Arrow', shortcut: 'A' },
-    { id: 'cursor', icon: <MousePointerClick className="w-5 h-5" />, label: 'Click Here', shortcut: 'C' },
-    { id: 'text', icon: <Type className="w-5 h-5" />, label: 'Text', shortcut: 'T' },
-    { id: 'highlight', icon: <Highlighter className="w-5 h-5" />, label: 'Highlight', shortcut: 'H' },
-    { id: 'blur', icon: <EyeOff className="w-5 h-5" />, label: 'Blur/Redact', shortcut: 'B' },
-  ];
 
   // Keyboard shortcuts
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      // Ignore if typing in an input
       if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) {
         return;
       }
 
       const shortcuts: Record<string, AnnotationTool> = {
-        v: 'select',
-        '1': 'callout',
-        r: 'box',
-        o: 'circle',
-        a: 'arrow',
-        c: 'cursor',
-        t: 'text',
-        h: 'highlight',
-        b: 'blur',
+        v: 'select', '1': 'callout', r: 'box', o: 'circle',
+        a: 'arrow', c: 'cursor', t: 'text', h: 'highlight', b: 'blur',
       };
 
       const tool = shortcuts[e.key.toLowerCase()];
-      if (tool) {
-        setActiveTool(tool);
-      }
+      if (tool) setActiveTool(tool);
 
-      // Delete selected annotation
       if ((e.key === 'Delete' || e.key === 'Backspace') && selectedAnnotation) {
         deleteAnnotation(step.id, selectedAnnotation);
         setSelectedAnnotation(null);
       }
 
-      // Escape to deselect
       if (e.key === 'Escape') {
         setSelectedAnnotation(null);
         setActiveTool('select');
       }
 
-      // Zoom controls
-      if (e.key === '=' || e.key === '+') {
-        setZoom((z) => Math.min(z + 0.25, 3));
-      }
-      if (e.key === '-') {
-        setZoom((z) => Math.max(z - 0.25, 0.5));
-      }
-      if (e.key === '0') {
-        setZoom(1);
-      }
+      if (e.key === '=' || e.key === '+') setZoom((z) => Math.min(z + 0.25, 3));
+      if (e.key === '-') setZoom((z) => Math.max(z - 0.25, 0.5));
+      if (e.key === '0') setZoom(1);
     };
 
-    // Mouse wheel zoom
     const handleWheel = (e: WheelEvent) => {
       if (e.ctrlKey || e.metaKey) {
         e.preventDefault();
@@ -122,14 +74,14 @@ export default function StepEditor({ step }: StepEditorProps) {
     };
   }, [selectedAnnotation, step.id, deleteAnnotation]);
 
-  const getRelativePosition = (e: React.MouseEvent) => {
+  const getRelativePosition = useCallback((e: React.MouseEvent) => {
     if (!canvasRef.current) return { x: 0, y: 0 };
     const rect = canvasRef.current.getBoundingClientRect();
     return {
       x: ((e.clientX - rect.left) / rect.width) * 100,
       y: ((e.clientY - rect.top) / rect.height) * 100,
     };
-  };
+  }, []);
 
   const handleMouseDown = (e: React.MouseEvent) => {
     if (activeTool === 'select') {
@@ -144,93 +96,55 @@ export default function StepEditor({ step }: StepEditorProps) {
     if (activeTool === 'text') {
       const text = prompt('Enter text:');
       if (text) {
-        addAnnotation(step.id, {
-          type: 'text',
-          x: pos.x,
-          y: pos.y,
-          text,
-          color: activeColor,
-          fontSize: 16,
-        });
+        addAnnotation(step.id, { type: 'text', x: pos.x, y: pos.y, text, color: activeColor, fontSize: 16 });
       }
       setIsDrawing(false);
       return;
     }
 
     if (activeTool === 'callout') {
-      // Auto-number based on existing callouts
       const existingCallouts = step.annotations.filter((a) => a.type === 'callout');
-      const nextNumber = existingCallouts.length + 1;
-      addAnnotation(step.id, {
-        type: 'callout',
-        x: pos.x,
-        y: pos.y,
-        color: activeColor,
-        number: nextNumber,
-      });
+      addAnnotation(step.id, { type: 'callout', x: pos.x, y: pos.y, color: activeColor, number: existingCallouts.length + 1 });
       setIsDrawing(false);
       return;
     }
 
     if (activeTool === 'cursor') {
-      addAnnotation(step.id, {
-        type: 'cursor',
-        x: pos.x,
-        y: pos.y,
-        color: activeColor,
-      });
+      addAnnotation(step.id, { type: 'cursor', x: pos.x, y: pos.y, color: activeColor });
       setIsDrawing(false);
       return;
     }
 
-    setCurrentAnnotation({
-      type: activeTool === 'highlight' ? 'highlight' : activeTool,
-      x: pos.x,
-      y: pos.y,
-      color: activeColor,
-    });
+    setCurrentAnnotation({ type: activeTool, x: pos.x, y: pos.y, color: activeColor });
   };
 
   const handleMouseMove = (e: React.MouseEvent) => {
-    // Handle dragging selected annotation
     if (isDragging) {
       handleAnnotationDrag(e);
       return;
     }
 
     if (!isDrawing || !currentAnnotation) return;
-
     const pos = getRelativePosition(e);
 
     if (currentAnnotation.type === 'arrow') {
-      setCurrentAnnotation({
-        ...currentAnnotation,
-        endX: pos.x,
-        endY: pos.y,
-      });
+      setCurrentAnnotation({ ...currentAnnotation, endX: pos.x, endY: pos.y });
     } else {
-      setCurrentAnnotation({
-        ...currentAnnotation,
-        width: pos.x - startPos.x,
-        height: pos.y - startPos.y,
-      });
+      setCurrentAnnotation({ ...currentAnnotation, width: pos.x - startPos.x, height: pos.y - startPos.y });
     }
   };
 
   const handleMouseUp = () => {
-    // End dragging
     if (isDragging) {
-      handleDragEnd();
+      setIsDragging(false);
       return;
     }
 
     if (!isDrawing || !currentAnnotation) return;
 
-    // Only add if it has some size
-    const hasSize =
-      currentAnnotation.type === 'arrow'
-        ? currentAnnotation.endX !== undefined
-        : Math.abs(currentAnnotation.width || 0) > 1 || Math.abs(currentAnnotation.height || 0) > 1;
+    const hasSize = currentAnnotation.type === 'arrow'
+      ? currentAnnotation.endX !== undefined
+      : Math.abs(currentAnnotation.width || 0) > 1 || Math.abs(currentAnnotation.height || 0) > 1;
 
     if (hasSize) {
       addAnnotation(step.id, currentAnnotation as Omit<Annotation, 'id'>);
@@ -248,10 +162,7 @@ export default function StepEditor({ step }: StepEditorProps) {
         const pos = getRelativePosition(e);
         setSelectedAnnotation(annotationId);
         setIsDragging(true);
-        setDragOffset({
-          x: pos.x - annotation.x,
-          y: pos.y - annotation.y,
-        });
+        setDragOffset({ x: pos.x - annotation.x, y: pos.y - annotation.y });
       }
     }
   };
@@ -266,33 +177,28 @@ export default function StepEditor({ step }: StepEditorProps) {
     const newX = pos.x - dragOffset.x;
     const newY = pos.y - dragOffset.y;
 
-    // Update position based on annotation type
     if (annotation.type === 'arrow') {
       const dx = (annotation.endX || annotation.x) - annotation.x;
       const dy = (annotation.endY || annotation.y) - annotation.y;
-      updateAnnotation(step.id, selectedAnnotation, {
-        x: newX,
-        y: newY,
-        endX: newX + dx,
-        endY: newY + dy,
-      });
+      updateAnnotation(step.id, selectedAnnotation, { x: newX, y: newY, endX: newX + dx, endY: newY + dy });
     } else {
-      updateAnnotation(step.id, selectedAnnotation, {
-        x: newX,
-        y: newY,
-      });
+      updateAnnotation(step.id, selectedAnnotation, { x: newX, y: newY });
     }
   };
 
-  const handleDragEnd = () => {
-    setIsDragging(false);
+  const handleDeleteAnnotation = () => {
+    if (selectedAnnotation) {
+      deleteAnnotation(step.id, selectedAnnotation);
+      setSelectedAnnotation(null);
+    }
   };
 
   const renderAnnotation = (annotation: Annotation, isPreview = false) => {
     const isSelected = selectedAnnotation === annotation.id && !isPreview;
-    const baseStyle = {
-      position: 'absolute' as const,
-      pointerEvents: isPreview ? 'none' as const : 'auto' as const,
+    const baseStyle: React.CSSProperties = {
+      position: 'absolute',
+      pointerEvents: isPreview ? 'none' : 'auto',
+      cursor: activeTool === 'select' ? 'move' : 'default',
     };
 
     switch (annotation.type) {
@@ -345,6 +251,24 @@ export default function StepEditor({ step }: StepEditorProps) {
               backgroundColor: annotation.color,
               opacity: 0.3,
               borderRadius: '2px',
+              boxShadow: isSelected ? '0 0 0 2px white, 0 0 0 4px #3B82F6' : undefined,
+            }}
+            onClick={(e) => handleAnnotationClick(e, annotation.id)}
+          />
+        );
+
+      case 'blur':
+        return (
+          <div
+            key={annotation.id}
+            style={{
+              ...baseStyle,
+              left: `${Math.min(annotation.x, annotation.x + (annotation.width || 0))}%`,
+              top: `${Math.min(annotation.y, annotation.y + (annotation.height || 0))}%`,
+              width: `${Math.abs(annotation.width || 0)}%`,
+              height: `${Math.abs(annotation.height || 0)}%`,
+              backgroundColor: '#1a1a1a',
+              borderRadius: '4px',
               boxShadow: isSelected ? '0 0 0 2px white, 0 0 0 4px #3B82F6' : undefined,
             }}
             onClick={(e) => handleAnnotationClick(e, annotation.id)}
@@ -432,30 +356,11 @@ export default function StepEditor({ step }: StepEditorProps) {
               boxShadow: isSelected
                 ? '0 0 0 2px white, 0 0 0 4px #3B82F6'
                 : '0 2px 4px rgba(0,0,0,0.3)',
-              cursor: 'pointer',
             }}
             onClick={(e) => handleAnnotationClick(e, annotation.id)}
           >
             {annotation.number}
           </div>
-        );
-
-      case 'blur':
-        return (
-          <div
-            key={annotation.id}
-            style={{
-              ...baseStyle,
-              left: `${Math.min(annotation.x, annotation.x + (annotation.width || 0))}%`,
-              top: `${Math.min(annotation.y, annotation.y + (annotation.height || 0))}%`,
-              width: `${Math.abs(annotation.width || 0)}%`,
-              height: `${Math.abs(annotation.height || 0)}%`,
-              backgroundColor: '#1a1a1a',
-              borderRadius: '4px',
-              boxShadow: isSelected ? '0 0 0 2px white, 0 0 0 4px #3B82F6' : undefined,
-            }}
-            onClick={(e) => handleAnnotationClick(e, annotation.id)}
-          />
         );
 
       case 'cursor':
@@ -471,8 +376,8 @@ export default function StepEditor({ step }: StepEditorProps) {
             }}
             onClick={(e) => handleAnnotationClick(e, annotation.id)}
           >
-            {/* Pulsing ring */}
             <div
+              className={isPreview ? '' : 'animate-ping'}
               style={{
                 position: 'absolute',
                 left: '-12px',
@@ -482,10 +387,8 @@ export default function StepEditor({ step }: StepEditorProps) {
                 borderRadius: '50%',
                 border: `3px solid ${annotation.color}`,
                 opacity: 0.5,
-                animation: isPreview ? undefined : 'pulse 1.5s ease-in-out infinite',
               }}
             />
-            {/* Center dot */}
             <div
               style={{
                 width: '16px',
@@ -504,88 +407,18 @@ export default function StepEditor({ step }: StepEditorProps) {
   };
 
   return (
-    <div className="h-full flex flex-col">
+    <div className="h-full flex flex-col bg-white">
       {/* Toolbar */}
-      <div className="bg-white border-b border-gray-200 px-4 py-2 flex items-center gap-4">
-        <div className="flex items-center gap-1 bg-gray-100 rounded-lg p-1">
-          {tools.map((tool) => (
-            <button
-              key={tool.id}
-              onClick={() => setActiveTool(tool.id)}
-              className={`p-2 rounded-md transition-colors ${
-                activeTool === tool.id
-                  ? 'bg-white shadow text-blue-600'
-                  : 'text-gray-600 hover:text-gray-800'
-              }`}
-              title={`${tool.label}${tool.shortcut ? ` (${tool.shortcut})` : ''}`}
-            >
-              {tool.icon}
-            </button>
-          ))}
-        </div>
-
-        <div className="h-6 w-px bg-gray-300" />
-
-        <div className="flex items-center gap-1">
-          {COLORS.map((color) => (
-            <button
-              key={color}
-              onClick={() => setActiveColor(color)}
-              className={`w-6 h-6 rounded-full transition-transform ${
-                activeColor === color ? 'ring-2 ring-offset-2 ring-blue-500 scale-110' : ''
-              }`}
-              style={{ backgroundColor: color }}
-            />
-          ))}
-        </div>
-
-        {selectedAnnotation && (
-          <>
-            <div className="h-6 w-px bg-gray-300" />
-            <button
-              onClick={() => {
-                deleteAnnotation(step.id, selectedAnnotation);
-                setSelectedAnnotation(null);
-              }}
-              className="p-2 text-red-500 hover:bg-red-50 rounded-lg transition-colors"
-              title="Delete annotation"
-            >
-              <Trash2 className="w-5 h-5" />
-            </button>
-          </>
-        )}
-
-        {/* Spacer */}
-        <div className="flex-1" />
-
-        {/* Zoom controls */}
-        <div className="flex items-center gap-1 bg-gray-100 rounded-lg p-1">
-          <button
-            onClick={() => setZoom((z) => Math.max(z - 0.25, 0.5))}
-            className="p-2 rounded-md text-gray-600 hover:text-gray-800 hover:bg-white transition-colors"
-            title="Zoom out (-)"
-          >
-            <ZoomOut className="w-4 h-4" />
-          </button>
-          <span className="px-2 text-sm text-gray-600 font-medium min-w-[50px] text-center">
-            {Math.round(zoom * 100)}%
-          </span>
-          <button
-            onClick={() => setZoom((z) => Math.min(z + 0.25, 3))}
-            className="p-2 rounded-md text-gray-600 hover:text-gray-800 hover:bg-white transition-colors"
-            title="Zoom in (+)"
-          >
-            <ZoomIn className="w-4 h-4" />
-          </button>
-          <button
-            onClick={() => setZoom(1)}
-            className="p-2 rounded-md text-gray-600 hover:text-gray-800 hover:bg-white transition-colors"
-            title="Reset zoom (0)"
-          >
-            <Maximize className="w-4 h-4" />
-          </button>
-        </div>
-      </div>
+      <Toolbar
+        activeTool={activeTool}
+        setActiveTool={setActiveTool}
+        activeColor={activeColor}
+        setActiveColor={setActiveColor}
+        selectedAnnotation={selectedAnnotation}
+        onDeleteAnnotation={handleDeleteAnnotation}
+        zoom={zoom}
+        setZoom={setZoom}
+      />
 
       {/* Main content */}
       <div className="flex-1 flex overflow-hidden">
@@ -596,7 +429,7 @@ export default function StepEditor({ step }: StepEditorProps) {
         >
           <div
             ref={canvasRef}
-            className="relative bg-white shadow-lg rounded-lg overflow-hidden mx-auto origin-top-left"
+            className="relative bg-white shadow-lg rounded-lg overflow-hidden mx-auto"
             style={{ 
               maxWidth: `${900 * zoom}px`,
               transform: `scale(${zoom})`,
@@ -608,84 +441,110 @@ export default function StepEditor({ step }: StepEditorProps) {
             onMouseLeave={handleMouseUp}
           >
             <img
-              ref={imageRef}
               src={step.imageUrl}
               alt={step.title}
               className="w-full h-auto select-none"
               draggable={false}
             />
 
-            {/* Render existing annotations */}
             {step.annotations.map((annotation) => renderAnnotation(annotation))}
-
-            {/* Render current annotation being drawn */}
             {currentAnnotation && renderAnnotation({ ...currentAnnotation, id: 'preview' } as Annotation, true)}
           </div>
         </div>
 
-        {/* Side panel for step details */}
-        <div className="w-80 bg-white border-l border-gray-200 p-4 overflow-auto">
-          <div className="space-y-4">
+        {/* Side panel */}
+        <div className="w-80 bg-white border-l border-gray-200 flex flex-col">
+          {/* Step details header */}
+          <div className="p-4 border-b border-gray-100 bg-gray-50">
+            <div className="flex items-center gap-2 text-gray-600 mb-1">
+              <FileText className="w-4 h-4" />
+              <span className="text-xs font-medium uppercase tracking-wider">Step Details</span>
+            </div>
+          </div>
+
+          <div className="flex-1 overflow-auto p-4 space-y-5">
+            {/* Title */}
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
+              <label className="block text-sm font-medium text-gray-700 mb-1.5">
                 Step Title
               </label>
               <input
                 type="text"
                 value={step.title}
                 onChange={(e) => updateStep(step.id, { title: e.target.value })}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
+                placeholder="e.g., Click the Settings button"
               />
             </div>
 
+            {/* Instructions */}
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Instructions
+              <label className="block text-sm font-medium text-gray-700 mb-1.5">
+                <div className="flex items-center gap-1.5">
+                  <MessageSquare className="w-4 h-4" />
+                  Instructions
+                </div>
               </label>
               <textarea
                 value={step.instructions}
                 onChange={(e) => updateStep(step.id, { instructions: e.target.value })}
                 placeholder="Describe what the user should do in this step..."
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none"
-                rows={6}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none text-sm"
+                rows={5}
               />
+              <p className="mt-1.5 text-xs text-gray-400">
+                This text will appear below the screenshot in the exported guide
+              </p>
             </div>
 
-            <div className="pt-4 border-t border-gray-200">
-              <h4 className="text-sm font-medium text-gray-700 mb-2">
+            {/* Annotations list */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
                 Annotations ({step.annotations.length})
-              </h4>
+              </label>
+              
               {step.annotations.length === 0 ? (
-                <p className="text-sm text-gray-400">
-                  Use the tools above to add annotations to your screenshot
-                </p>
+                <div className="bg-gray-50 rounded-lg p-4 text-center">
+                  <p className="text-sm text-gray-500">No annotations yet</p>
+                  <p className="text-xs text-gray-400 mt-1">
+                    Select a tool and click on the screenshot to add annotations
+                  </p>
+                </div>
               ) : (
-                <div className="space-y-2">
+                <div className="space-y-1.5">
                   {step.annotations.map((annotation) => (
                     <div
                       key={annotation.id}
-                      className={`flex items-center justify-between p-2 rounded-lg cursor-pointer transition-colors ${
+                      className={`flex items-center justify-between p-2.5 rounded-lg cursor-pointer transition-colors ${
                         selectedAnnotation === annotation.id
-                          ? 'bg-blue-100'
+                          ? 'bg-blue-100 ring-1 ring-blue-300'
                           : 'bg-gray-50 hover:bg-gray-100'
                       }`}
                       onClick={() => setSelectedAnnotation(annotation.id)}
                     >
-                      <div className="flex items-center gap-2">
+                      <div className="flex items-center gap-2.5">
                         <div
-                          className="w-4 h-4 rounded"
+                          className="w-4 h-4 rounded-full shadow-sm"
                           style={{ backgroundColor: annotation.color }}
                         />
-                        <span className="text-sm capitalize">{annotation.type}</span>
+                        <span className="text-sm font-medium capitalize">
+                          {annotation.type}
+                          {annotation.type === 'callout' && ` #${annotation.number}`}
+                        </span>
                       </div>
                       <button
                         onClick={(e) => {
                           e.stopPropagation();
                           deleteAnnotation(step.id, annotation.id);
+                          if (selectedAnnotation === annotation.id) {
+                            setSelectedAnnotation(null);
+                          }
                         }}
-                        className="p-1 text-gray-400 hover:text-red-500"
+                        className="p-1 text-gray-400 hover:text-red-500 rounded transition-colors"
                       >
-                        <Trash2 className="w-4 h-4" />
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                        </svg>
                       </button>
                     </div>
                   ))}

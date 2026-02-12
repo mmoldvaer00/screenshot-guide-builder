@@ -19,10 +19,10 @@ import {
   useSortable,
 } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
-import { GripVertical, Trash2, Upload, Image, Copy } from 'lucide-react';
+import { GripVertical, Trash2, Upload, ImageIcon, Copy, Plus } from 'lucide-react';
 import { GuideStep } from '@/types/guide';
 
-function SortableStep({ step, isSelected }: { step: GuideStep; isSelected: boolean }) {
+function SortableStep({ step, index, isSelected }: { step: GuideStep; index: number; isSelected: boolean }) {
   const { setSelectedStep, deleteStep, duplicateStep } = useGuideStore();
   
   const {
@@ -44,63 +44,89 @@ function SortableStep({ step, isSelected }: { step: GuideStep; isSelected: boole
     <div
       ref={setNodeRef}
       style={style}
-      className={`group flex items-center gap-2 p-2 rounded-lg cursor-pointer transition-colors ${
-        isSelected ? 'bg-blue-100 border border-blue-300' : 'hover:bg-gray-100'
+      className={`group relative rounded-xl transition-all cursor-pointer ${
+        isSelected 
+          ? 'bg-blue-50 ring-2 ring-blue-500 shadow-sm' 
+          : 'bg-white hover:bg-gray-50 border border-gray-200 hover:border-gray-300'
       }`}
       onClick={() => setSelectedStep(step.id)}
     >
-      <button
-        {...attributes}
-        {...listeners}
-        className="p-1 text-gray-400 hover:text-gray-600 cursor-grab active:cursor-grabbing"
-      >
-        <GripVertical className="w-4 h-4" />
-      </button>
-      
-      <div className="w-12 h-12 rounded bg-gray-200 overflow-hidden flex-shrink-0">
-        {step.imageUrl ? (
-          <img
-            src={step.imageUrl}
-            alt={step.title}
-            className="w-full h-full object-cover"
-          />
-        ) : (
-          <div className="w-full h-full flex items-center justify-center">
-            <Image className="w-6 h-6 text-gray-400" />
+      {/* Step number badge */}
+      <div className={`absolute -left-2 -top-2 w-7 h-7 rounded-full flex items-center justify-center text-sm font-bold shadow-sm ${
+        isSelected ? 'bg-blue-500 text-white' : 'bg-gray-100 text-gray-600 border border-gray-200'
+      }`}>
+        {index + 1}
+      </div>
+
+      <div className="p-3">
+        {/* Screenshot preview */}
+        <div className="relative w-full aspect-video rounded-lg bg-gray-100 overflow-hidden mb-3">
+          {step.imageUrl ? (
+            <img
+              src={step.imageUrl}
+              alt={step.title}
+              className="w-full h-full object-cover"
+            />
+          ) : (
+            <div className="w-full h-full flex items-center justify-center">
+              <ImageIcon className="w-8 h-8 text-gray-300" />
+            </div>
+          )}
+          
+          {/* Annotation count badge */}
+          {step.annotations.length > 0 && (
+            <div className="absolute bottom-2 right-2 bg-black/70 text-white text-xs px-2 py-0.5 rounded-full">
+              {step.annotations.length} annotation{step.annotations.length !== 1 ? 's' : ''}
+            </div>
+          )}
+        </div>
+
+        {/* Title and actions */}
+        <div className="flex items-start gap-2">
+          <button
+            {...attributes}
+            {...listeners}
+            className="p-1 text-gray-300 hover:text-gray-500 cursor-grab active:cursor-grabbing mt-0.5"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <GripVertical className="w-4 h-4" />
+          </button>
+          
+          <div className="flex-1 min-w-0">
+            <p className="text-sm font-medium text-gray-800 truncate">
+              {step.title}
+            </p>
+            <p className="text-xs text-gray-400 truncate mt-0.5">
+              {step.instructions || 'Click to add instructions...'}
+            </p>
           </div>
-        )}
-      </div>
-      
-      <div className="flex-1 min-w-0">
-        <p className="text-sm font-medium text-gray-800 truncate">
-          {step.title}
-        </p>
-        <p className="text-xs text-gray-400 truncate">
-          {step.instructions || 'No instructions'}
-        </p>
-      </div>
-      
-      <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-        <button
-          onClick={(e) => {
-            e.stopPropagation();
-            duplicateStep(step.id);
-          }}
-          className="p-1 text-gray-400 hover:text-blue-500"
-          title="Duplicate step"
-        >
-          <Copy className="w-4 h-4" />
-        </button>
-        <button
-          onClick={(e) => {
-            e.stopPropagation();
-            deleteStep(step.id);
-          }}
-          className="p-1 text-gray-400 hover:text-red-500"
-          title="Delete step"
-        >
-          <Trash2 className="w-4 h-4" />
-        </button>
+
+          {/* Action buttons */}
+          <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                duplicateStep(step.id);
+              }}
+              className="p-1.5 text-gray-400 hover:text-blue-500 hover:bg-blue-50 rounded transition-colors"
+              title="Duplicate step"
+            >
+              <Copy className="w-3.5 h-3.5" />
+            </button>
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                if (confirm('Delete this step?')) {
+                  deleteStep(step.id);
+                }
+              }}
+              className="p-1.5 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded transition-colors"
+              title="Delete step"
+            >
+              <Trash2 className="w-3.5 h-3.5" />
+            </button>
+          </div>
+        </div>
       </div>
     </div>
   );
@@ -149,7 +175,6 @@ export default function StepList() {
         }
       });
       
-      // Reset input
       if (fileInputRef.current) {
         fileInputRef.current.value = '';
       }
@@ -160,6 +185,7 @@ export default function StepList() {
   const handleDrop = useCallback(
     (e: React.DragEvent) => {
       e.preventDefault();
+      e.currentTarget.classList.remove('border-blue-400', 'bg-blue-50');
       const files = e.dataTransfer.files;
       
       Array.from(files).forEach((file) => {
@@ -178,68 +204,107 @@ export default function StepList() {
 
   const handleDragOver = (e: React.DragEvent) => {
     e.preventDefault();
+    e.currentTarget.classList.add('border-blue-400', 'bg-blue-50');
+  };
+
+  const handleDragLeave = (e: React.DragEvent) => {
+    e.currentTarget.classList.remove('border-blue-400', 'bg-blue-50');
   };
 
   if (!project) return null;
 
   return (
-    <div className="flex flex-col h-full">
-      <div className="p-4 border-b border-gray-200">
-        <h2 className="font-semibold text-gray-800">Steps</h2>
-      </div>
-
-      {/* Upload area */}
-      <div
-        className="p-4 border-b border-gray-200"
-        onDrop={handleDrop}
-        onDragOver={handleDragOver}
-      >
-        <input
-          ref={fileInputRef}
-          type="file"
-          accept="image/*"
-          multiple
-          onChange={handleFileUpload}
-          className="hidden"
-        />
-        <button
-          onClick={() => fileInputRef.current?.click()}
-          className="w-full py-3 px-4 border-2 border-dashed border-gray-300 rounded-lg text-gray-500 hover:border-blue-400 hover:text-blue-600 hover:bg-blue-50 transition-colors flex items-center justify-center gap-2"
-        >
-          <Upload className="w-5 h-5" />
-          <span>Upload Screenshots</span>
-        </button>
+    <div className="flex flex-col h-full bg-gray-50">
+      {/* Header */}
+      <div className="p-4 bg-white border-b border-gray-200">
+        <div className="flex items-center justify-between">
+          <div>
+            <h2 className="font-semibold text-gray-800">Steps</h2>
+            <p className="text-xs text-gray-400 mt-0.5">
+              {project.steps.length} step{project.steps.length !== 1 ? 's' : ''} • Drag to reorder
+            </p>
+          </div>
+        </div>
       </div>
 
       {/* Steps list */}
-      <div className="flex-1 overflow-auto p-2">
+      <div className="flex-1 overflow-auto p-4">
         {project.steps.length === 0 ? (
-          <div className="text-center py-8 text-gray-400">
-            <Image className="w-12 h-12 mx-auto mb-2 opacity-50" />
-            <p className="text-sm">No steps yet</p>
-            <p className="text-xs">Upload screenshots to get started</p>
+          <div
+            className="border-2 border-dashed border-gray-300 rounded-xl p-8 text-center transition-colors"
+            onDrop={handleDrop}
+            onDragOver={handleDragOver}
+            onDragLeave={handleDragLeave}
+          >
+            <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
+              <ImageIcon className="w-8 h-8 text-gray-400" />
+            </div>
+            <h3 className="font-medium text-gray-700 mb-1">No steps yet</h3>
+            <p className="text-sm text-gray-500 mb-4">
+              Drop screenshots here or click below to upload
+            </p>
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="image/*"
+              multiple
+              onChange={handleFileUpload}
+              className="hidden"
+            />
+            <button
+              onClick={() => fileInputRef.current?.click()}
+              className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm font-medium"
+            >
+              <Upload className="w-4 h-4" />
+              Upload Screenshots
+            </button>
           </div>
         ) : (
-          <DndContext
-            sensors={sensors}
-            collisionDetection={closestCenter}
-            onDragEnd={handleDragEnd}
-          >
-            <SortableContext
-              items={project.steps.map((s) => s.id)}
-              strategy={verticalListSortingStrategy}
+          <>
+            <DndContext
+              sensors={sensors}
+              collisionDetection={closestCenter}
+              onDragEnd={handleDragEnd}
             >
-              <div className="space-y-1">
-                {project.steps.map((step) => (
-                  <SortableStep
-                    key={step.id}
-                    step={step}
-                    isSelected={step.id === selectedStepId}
-                  />
-                ))}
-              </div>
-            </SortableContext>
-          </DndContext>
+              <SortableContext
+                items={project.steps.map((s) => s.id)}
+                strategy={verticalListSortingStrategy}
+              >
+                <div className="space-y-4">
+                  {project.steps.map((step, index) => (
+                    <SortableStep
+                      key={step.id}
+                      step={step}
+                      index={index}
+                      isSelected={step.id === selectedStepId}
+                    />
+                  ))}
+                </div>
+              </SortableContext>
+            </DndContext>
+
+            {/* Add more button */}
+            <div className="mt-4">
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept="image/*"
+                multiple
+                onChange={handleFileUpload}
+                className="hidden"
+              />
+              <button
+                onClick={() => fileInputRef.current?.click()}
+                className="w-full py-3 border-2 border-dashed border-gray-300 rounded-xl text-gray-500 hover:border-blue-400 hover:text-blue-600 hover:bg-blue-50 transition-colors flex items-center justify-center gap-2 text-sm font-medium"
+                onDrop={handleDrop}
+                onDragOver={handleDragOver}
+                onDragLeave={handleDragLeave}
+              >
+                <Plus className="w-4 h-4" />
+                Add More Screenshots
+              </button>
+            </div>
+          </>
         )}
       </div>
     </div>
