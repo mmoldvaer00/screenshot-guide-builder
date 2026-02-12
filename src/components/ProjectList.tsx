@@ -37,7 +37,7 @@ export default function ProjectList() {
       {/* Create new project */}
       {showCreate ? (
         <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 mb-6">
-          <h3 className="text-lg font-semibold mb-4">Create New Project</h3>
+          <h3 className="text-lg font-semibold text-gray-800 mb-4">Create New Project</h3>
           <div className="space-y-4">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -48,7 +48,7 @@ export default function ProjectList() {
                 value={newName}
                 onChange={(e) => setNewName(e.target.value)}
                 placeholder="e.g., App Onboarding Guide"
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white text-gray-900"
                 autoFocus
               />
             </div>
@@ -60,7 +60,7 @@ export default function ProjectList() {
                 value={newDescription}
                 onChange={(e) => setNewDescription(e.target.value)}
                 placeholder="Brief description of this guide..."
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none"
+                className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white text-gray-900 resize-none"
                 rows={2}
               />
             </div>
